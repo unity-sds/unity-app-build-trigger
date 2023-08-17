@@ -54,15 +54,34 @@
 #      authentication method.
 #
 #   -p PIPELINE is optional and no action is taken if not used.  The
-#      primary purpose of this optional argument is to supply a
-#      pipeline YML file to the repository cloned in MCP GitLab.
-#      The argument should be a pipeline file (.gitlab-ci.yml) in
-#      the local system that the user would like to add it to the
-#      local repo before cloning the repo in MCP GitLab.
+#      purpose of this optional argument is to supply a pipeline YML
+#      file to the repository cloned in MCP GitLab.  The argument
+#      should be a pipeline file (.gitlab-ci.yml) in the local system
+#      that the user would like to add it to the local repo before
+#      cloning the repo in MCP GitLab.  Regardless of how the
+#      argument file is named, its copy added to the local repo is
+#      named .gitlab-ci.yml.  The pipeline file is added to the repo
+#      on a new branch named "mcp_main" to avoid modifying the
+#      original contents of the source repository to be cloned.
 #
-# WARNING: There is no strong error checking implemented yet.  There
-# are also no prompts to confirm the users actions yet.
+# WARNING:
+#  - There is no strong error checking implemented yet.
+#  - There are no prompts to confirm the users actions yet.
 #
+# NOTES:
+#  - These script uses the following tools:
+#      > realpath
+#      > wget
+#      > git
+#      > git-lfs
+#    The tool "realpath is already widely available in many unix/linux
+#    systems.  Git is also commonly installed in many systems;
+#    however, git version 2.10 or greater is needed due to the use of
+#    "-o ci.skip" option.  Install any of the above listed tools that
+#    does not exist in your system.  Afte installing git and git-lfs,
+#    you must run the command
+#      > git lfs install
+#    to initialize git-lfs before using this script.
 
 
 # Prints usage message
@@ -102,7 +121,7 @@ while [ $# -gt 0 ]; do
             b) branch=${OPTARG};;
             m) message=${OPTARG};;
             t) tauthentication=${OPTARG};;
-            p) pipeline=${OPTARG};;
+            p) pipeline=`realpath ${OPTARG}`;;
             *) echo "ERROR:  Unknown option."; exit_abnormal;;
         esac
     done
@@ -138,6 +157,8 @@ path_valid_url=$(! wget --spider "$path" > /dev/null 2>&1; echo $?)
 #
 if (( $path_valid_url )); then
     echo "INFO:  Verified URL '$path'"
+else
+    echo "INFO:  Cannot be verified as a URL, '$path'"
 fi
 
 
@@ -198,21 +219,6 @@ fi
 if [ ! -d $path ]; then
     echo "ERROR:  '$path' must be an existing directory!"
     exit_abnormal
-fi
-
-# If pipeline yml file provided, copy it to destination before cd.
-#
-ymlfn=""
-if [ ! -z $pipeline ]; then
-    if [ -f $pipeline ]; then
-        cp $pipeline $path
-        ymlfn=$(basename $pipeline)
-    else 
-        echo "ERROR:  $pipeline does not exist."
-        exit_abnormal
-    fi
-else
-    echo "INFO:  No pipeline YML file provided."
 fi
 
 cd $path
@@ -341,26 +347,73 @@ else
 fi
 
 
+#=============== Push into MCP GitLab ===============
+
+# The "git push" command here pushes the original contents of the
+# $path to MCP as is on the branch "$branch".  On this branch,
+# nothing is modified, not even the original YML file (if any).
+
+# Do not add "-u" option for "git push ..." command.
+#
+echo "INFO:  Executing the command"
+echo "   git push -o ci.skip $name $branch"
+git push -o ci.skip "$name" "$branch"
+
+
+
+#=============== Additional updates to the cloned repo. ===============
+
+# Additional updates to the MCP cloned repo will be done on the
+# branch $mcp_branch.  In this way, the "main/master" branch will
+# remain the exact copy of the source repository.
+#
+mcp_branch="mcp_main"
+git checkout -b $mcp_branch
+
+
 #=============== Add pipeline YAML file if given. ===============
 
-if [ ! -z $ymlfn ]; then
-    if [ -f $ymlfn ]; then
-        git add $ymlfn
+# If pipeline yml file provided, copy it to destination. Here, we
+# assume that the input pipeline filename may or may not the
+# expected ".gitlab-ci.yml".  Therefore, we need to make sure
+# that it is named ".gitlab-ci.yml" when copied.
+#
+ymlfn_copy=".gitlab-ci.yml"
+ymlfn_original=""
+if [ ! -z $pipeline ]; then
+    if [ -f $pipeline ]; then
+        cp $pipeline ./$ymlfn_copy
+        ymlfn_original=$(basename $pipeline)
+    else 
+        echo "ERROR:  $pipeline does not exist."
+        exit_abnormal
+    fi
+else
+    echo "INFO:  No pipeline YML file provided."
+fi
+
+
+# Here $ymlfn_original is only used like a flag to see whether or
+# not a pipeline file was given as an optional input.  The name
+# of the copied versoin of the pipeline YML file is given by
+# $ymlfn_copy.
+#
+if [ ! -z $ymlfn_original ]; then
+    if [ -f $ymlfn_copy ]; then
+        git add $ymlfn_copy
         git commit -m "added pipeline yml file"
     else 
-        echo "ERROR: '$ymlfn' should be a valid file at this point!  Coding error!"
+        echo "ERROR: '$ymlfn_copy' should be a valid file at this point!  Coding error!"
         exit_abnormal
     fi
 fi
 
 
-#=============== Finally, push into MCP GitLab ===============
-
-# Do not add "-u" option for "git push ..." command.
-#
 echo "INFO:  Executing the command"
-echo "   git push $name $branch"
-git push "$name" "$branch"
+echo "   git push $name $mcp_branch"
+git push "$name" "$mcp_branch"
 
+
+git checkout $branch
 
 exit 0
