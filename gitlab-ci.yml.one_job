@@ -21,6 +21,28 @@ stages:
 # None of the following jobs are using "tags" keyword because the
 # default "tags" defined above works for all.
 
+# Unity-app-generator commands must be executed sequentially and in
+# the order given here, i.e
+#   1) init
+#   2) build_docker
+#   3) push_docker
+#   4) build_cwl
+#   5) push_app_registery
+# Even build_cwl must happen after push_docker because the correct
+# Docker image location, which is written into the CWL files by
+# build_cwl command, is established after push_docker command.
+#
+# The following are needed group-level gitlab CI/CD variables:
+#   1) DH_USERNAME:  docker hub username
+#   2) DH_PASSWORD:  docker hub password
+#   3) DH_REGISTRY_URL:  docker hub registry URL
+#   4) APPGEN_DOCKER_URL:  currently same as DH_USERNAME
+#   5) APPGEN_DOCKSTORE_URL:  dockstore URL
+#   6) APPGEN_DOCKSTORE_TOKEN:  dockstore access token
+# Instructions for defining group-level variables are given at
+#   https://docs.gitlab.com/ee/ci/variables/#for-a-group
+# There is no such thing as "account-level" variables.
+#
 build-app-gen:
   stage: build
   script:
@@ -32,7 +54,7 @@ build-app-gen:
     - echo "CI_PROJECT_DIR is  $CI_PROJECT_DIR"
     - echo "CI_PROJECT_ID is  $CI_PROJECT_ID"
     - echo "CI_PROJECT_NAME is  $CI_PROJECT_NAME"
-    - docker login -u $DH_USERNAME -p $DH_PASSWORD https://index.docker.io/v1
+    - docker login -u $DH_USERNAME -p $DH_PASSWORD $DH_REGISTRY_URL
     - python3 -m unity_app_generator init $CI_PROJECT_DIR
     - cd $CI_PROJECT_DIR
     - python3 -m unity_app_generator build_docker
