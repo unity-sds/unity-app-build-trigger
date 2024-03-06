@@ -47,7 +47,6 @@ build-app-gen:
   stage: build
   script:
     - echo "The account used to build the pipeline is `whoami`."
-    - echo "Project to build is $PROJ_TO_BUILD  Building ..."
     - echo "Printing some predefined pipeline variables:"
     - echo "CI_PROJECT_URL is   $CI_PROJECT_URL"
     - echo "CI_REPOSITORY_URL is  $CI_REPOSITORY_URL"

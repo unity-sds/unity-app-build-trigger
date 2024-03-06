@@ -356,9 +356,8 @@ fi
 # Do not add "-u" option for "git push ..." command.
 #
 echo "INFO:  Executing the command"
-echo "   git push -o ci.skip $name $branch"
-git push -o ci.skip "$name" "$branch"
-
+echo "   git push -f -o ci.skip $name $branch"
+git push -f -o ci.skip "$name" "$branch"
 
 
 #=============== Additional updates to the cloned repo. ===============
@@ -410,8 +409,8 @@ fi
 
 
 echo "INFO:  Executing the command"
-echo "   git push $name $mcp_branch"
-git push "$name" "$mcp_branch"
+echo "   git push -f $name $mcp_branch"
+git push -f "$name" "$mcp_branch"
 
 
 git checkout $branch
