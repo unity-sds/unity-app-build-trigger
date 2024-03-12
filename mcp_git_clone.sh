@@ -370,6 +370,26 @@ mcp_branch="mcp_main"
 git checkout -b $mcp_branch
 
 
+#=============== A temporary hack ===============
+
+# As of git version 2.40.1 and for Unity-ADS Auto Clone/Build process,
+# the 'git push --force ...' command above for main/master branch works,
+# but 'git push --force ...' command below for mcp-main branch does not
+# work.  However, both forced push commands do work with git version
+# 2.44.0.  No test has been done with git versions 2.42.x and 2.43.x.
+# Currently (03/11/2024), the git version supported in Amazon Linux
+# environment is 2.40.1.  It is expected that when Amazon Linux starts
+# to use git version 2.44.0 and above, the following code block, which
+# deletes remote MCP-main branch, can be deleted or commented out.
+
+deleted=$(! git push "$name" -d "$mcp_branch" > /dev/null 2>&1; echo $?)
+if (( $deleted )); then
+  echo "INFO:  Successfully deleted an old $mcp_branch branch at MCP GitLab."
+else 
+  echo "INFO:  Did not detect an old $mcp_branch branch at MCP GitLab to delete."
+fi
+
+
 #=============== Add pipeline YAML file if given. ===============
 
 # If pipeline yml file provided, copy it to destination. Here, we
