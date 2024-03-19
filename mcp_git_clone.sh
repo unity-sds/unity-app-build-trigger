@@ -64,6 +64,12 @@
 #      on a new branch named "mcp_main" to avoid modifying the
 #      original contents of the source repository to be cloned.
 #
+#   -g SGROUP (subgroup) is optional. This is used to select a pre-
+#      existing subgroup in the Unity group of the Unity MCP GitLab
+#      account.  If provided, the remote repository will be cloned
+#      in the specified subgroup.  If not provided, the remote repo.
+#      will be cloned directly inside the Unity group.
+#
 # WARNING:
 #  - There is no strong error checking implemented yet.
 #  - There are no prompts to confirm the users actions yet.
@@ -87,7 +93,7 @@
 # Prints usage message
 #
 usage() {
-  echo "Usage: $0 [ PATH ] [ -b BRANCH ] [ -m MESSAGE ] [ -t TOKEN_NAME:TOKEN ] [ -p PIPELINE ]" 1>&2 
+  echo "Usage: $0 [ PATH ] [ -b BRANCH ] [ -m MESSAGE ] [ -t TOKEN_NAME:TOKEN ] [ -p PIPELINE ] [ -g SGROUP ]" 1>&2 
 }
 
 # This function is for error exit.
@@ -106,12 +112,13 @@ branch="main"
 message="initial revision"
 tauthentication=""
 pipeline=""
+sgroup=""
 
 ipos=0
 while [ $# -gt 0 ]; do
     unset OPTIND
     unset OPTARG
-    while getopts hb:m:t:p: opt; do
+    while getopts hb:m:t:p:g: opt; do
        if [[ ${OPTARG} =~ ^-.*$ ]]; then
             echo "ERROR:  Option argument cannot start with '-'"
             exit_abnormal
@@ -122,6 +129,7 @@ while [ $# -gt 0 ]; do
             m) message=${OPTARG};;
             t) tauthentication=${OPTARG};;
             p) pipeline=`realpath ${OPTARG}`;;
+            g) sgroup=${OPTARG};;
             *) echo "ERROR:  Unknown option."; exit_abnormal;;
         esac
     done
@@ -144,6 +152,7 @@ echo "branch   '$branch'"
 echo "message  '$message'"
 echo "token    '$tauthentication'"
 echo "pipeline '$pipeline'"
+echo "sgroup   '$sgroup'"
 echo "path     '$path'"
 
 
@@ -321,6 +330,10 @@ if [ -z "$result" ]; then
         gitlaburl="https://gitlab.mcp.nasa.gov/unity/"
     else
         gitlaburl="https://$tauthentication@gitlab.mcp.nasa.gov/unity/"
+    fi
+
+    if [ -n "$sgroup" ]; then
+        gitlaburl="$gitlaburl$sgroup/"
     fi
 
     # The current subdirectory name (last token of PWD) is
