@@ -60,6 +60,7 @@ build-app-gen:
     - python3 -m unity_app_generator push_docker $APPGEN_DOCKER_URL
     - python3 -m unity_app_generator build_cwl
     - python3 -m unity_app_generator push_app_registry --api_url $APPGEN_DOCKSTORE_URL --token $APPGEN_DOCKSTORE_TOKEN
+    - docker rmi -f $(docker images -q)
 
 
 test-app-gen:
