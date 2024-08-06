@@ -1,3 +1,12 @@
+# This pipeline file requires preprocessing. It has three string
+# tokens that must be replaces with correct values. The tokens are
+#   - UVENUE : Unity venue, 'dev', 'test' or 'prod' lowercase only)
+#   - APGTAG : git tag for the desired version of app-pack-generator
+#   - UAGTAG : git tag for the desired version of unity-app-generator
+# For example, this file can be preprocessed like
+#   cat gitlab-ci.yml.one_job | sed s/UVENUE/dev/ | sed s/APGTAG/0.4.0/ | sed s/UAGTAG/0.3.0/ > .gitlab-ci.yml
+
+
 # This is the default section.  The "default" keyword (section) lets
 # you set default values for other keywords globally.  The default
 # values can be overridden at different parts of the pipeline when
@@ -7,6 +16,7 @@ default:
   tags:
     - unity
     - shell
+    - UVENUE
 
 
 # This piepline has four stages
@@ -31,7 +41,7 @@ stages:
 # Even build_cwl must happen after push_docker because the correct
 # Docker image location, which is written into the CWL files by
 # build_cwl command, is established after push_docker command.
-# 
+#
 # The following are needed group-level gitlab CI/CD variables:
 #   1) DH_USERNAME:  docker hub username
 #   2) DH_PASSWORD:  docker hub password
@@ -55,6 +65,15 @@ build-app-gen:
     - echo "CI_PROJECT_DIR is  $CI_PROJECT_DIR"
     - echo "CI_PROJECT_ID is  $CI_PROJECT_ID"
     - echo "CI_PROJECT_NAME is  $CI_PROJECT_NAME"
+    - TEMPDIR=`date -u +\%Y\%m\%d\%H\%M\%S`_temp
+    - mkdir ~/$TEMPDIR
+    - cd ~/$TEMPDIR
+    - virtualenv venv
+    - source venv/bin/activate
+    - git clone --depth 1 --branch APGTAG https://github.com/unity-sds/app-pack-generator.git
+    - pip3 install app-pack-generator/
+    - git clone --depth 1 --branch UAGTAG https://github.com/unity-sds/unity-app-generator.git
+    - pip3 install unity-app-generator/
     - docker login -u $DH_USERNAME -p $DH_PASSWORD $DH_REGISTRY_URL
     - python3 -m unity_app_generator init $CI_PROJECT_DIR
     - cd $CI_PROJECT_DIR
@@ -63,7 +82,9 @@ build-app-gen:
     - python3 -m unity_app_generator build_cwl
     - python3 -m unity_app_generator push_app_registry --api_url $APPGEN_DOCKSTORE_URL --token $APPGEN_DOCKSTORE_TOKEN
     - docker rmi -f $(docker images -q)
-
+    - cd ~
+    - deactivate
+    - rm -rf ~/$TEMPDIR
 
 test-app-gen:
   stage: test

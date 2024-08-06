@@ -63,12 +63,35 @@
 #      named .gitlab-ci.yml.  The pipeline file is added to the repo
 #      on a new branch named "mcp_main" to avoid modifying the
 #      original contents of the source repository to be cloned.
+#      The cloning tool (this file) will attempt to make a few changes
+#      to the input pipeline file before creating the final YML file
+#      .gitlab-ci.yml. This tool will replace the occurrences of three
+#      string tokens in the input file with other values. The
+#      replacements are the following:
+#        * UVENUE: This string token, if it exists, is replaced with
+#          the value provided through -v argument.
+#        * APGTAG: This string token, if it exists, is replaced with
+#          the value provided through -a argument.
+#        * UAGTAG: This string token, if it exists, is replaced with
+#          the value provided through -u argument.
 #
 #   -g SGROUP (subgroup) is optional. This is used to select a pre-
 #      existing subgroup in the Unity group of the Unity MCP GitLab
 #      account.  If provided, the remote repository will be cloned
 #      in the specified subgroup.  If not provided, the remote repo.
 #      will be cloned directly inside the Unity group.
+#
+#   -v UVENUE (Unity venue) is optional. The valid values are 'dev',
+#      'test' and 'prod' (all lower case), and the default value is
+#      'dev'
+#
+#   -a APGTAG is optional, and it is the git tag for the repository
+#      https://github.com/unity-sds/app-pack-generator for the
+#      desired revision. The default value is '0.4.0'
+#
+#   -u UAGTAG is optional, and it is the git tag for the repository
+#      https://github.com/unity-sds/unity-app-generator for the
+#      desired revision. The default value is '0.3.0'
 #
 # WARNING:
 #  - There is no strong error checking implemented yet.
@@ -93,7 +116,7 @@
 # Prints usage message
 #
 usage() {
-  echo "Usage: $0 [ PATH ] [ -b BRANCH ] [ -m MESSAGE ] [ -t TOKEN_NAME:TOKEN ] [ -p PIPELINE ] [ -g SGROUP ]" 1>&2 
+  echo "Usage: $0 [ PATH ] [ -b BRANCH ] [ -m MESSAGE ] [ -t TOKEN_NAME:TOKEN ] [ -p PIPELINE ] [ -g SGROUP ] [ -v UVENUE ] [ -a APGTAG ] [ -u UAGTAG ]" 1>&2 
 }
 
 # This function is for error exit.
@@ -113,12 +136,15 @@ message="initial revision"
 tauthentication=""
 pipeline=""
 sgroup=""
+uvenue="dev"
+apgtag=""
+uagtag=""
 
 ipos=0
 while [ $# -gt 0 ]; do
     unset OPTIND
     unset OPTARG
-    while getopts hb:m:t:p:g: opt; do
+    while getopts hb:m:t:p:g:v:a:u: opt; do
        if [[ ${OPTARG} =~ ^-.*$ ]]; then
             echo "ERROR:  Option argument cannot start with '-'"
             exit_abnormal
@@ -130,6 +156,9 @@ while [ $# -gt 0 ]; do
             t) tauthentication=${OPTARG};;
             p) pipeline=`realpath ${OPTARG}`;;
             g) sgroup=${OPTARG};;
+            v) uvenue=${OPTARG};;
+            a) apgtag=${OPTARG};;
+            u) uagtag=${OPTARG};;
             *) echo "ERROR:  Unknown option."; exit_abnormal;;
         esac
     done
@@ -154,6 +183,9 @@ echo "token    '$tauthentication'"
 echo "pipeline '$pipeline'"
 echo "sgroup   '$sgroup'"
 echo "path     '$path'"
+echo "uvenue   '$uvenue'"
+echo "apgtag   '$apgtag'"
+echo "uagtag   '$uagtag'"
 
 
 #=============== Check if "$path" is a valid URL ===============
@@ -414,7 +446,8 @@ ymlfn_copy=".gitlab-ci.yml"
 ymlfn_original=""
 if [ ! -z $pipeline ]; then
     if [ -f $pipeline ]; then
-        cp $pipeline ./$ymlfn_copy
+#        cp $pipeline ./$ymlfn_copy
+        cat $pipeline | sed s/UVENUE/$uvenue/ | sed s/APGTAG/$apgtag/ | sed s/UAGTAG/$uagtag/ > ./$ymlfn_copy
         ymlfn_original=$(basename $pipeline)
     else 
         echo "ERROR:  $pipeline does not exist."
