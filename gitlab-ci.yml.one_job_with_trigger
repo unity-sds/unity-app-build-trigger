@@ -65,7 +65,7 @@ build-app-gen:
     - echo "CI_PROJECT_DIR is  $CI_PROJECT_DIR"
     - echo "CI_PROJECT_ID is  $CI_PROJECT_ID"
     - echo "CI_PROJECT_NAME is  $CI_PROJECT_NAME"
-    - TEMPDIR=`date -u +\%Y\%m\%d\%H\%M\%S`_temp
+    - TEMPDIR=`date -u +\%Y\%m\%d\%H\%M\%S`_temp_cloned
     - mkdir ~/$TEMPDIR
     - cd ~/$TEMPDIR
     - virtualenv venv
