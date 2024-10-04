@@ -68,6 +68,7 @@ build-app-gen:
     - TEMPDIR=`date -u +\%Y\%m\%d\%H\%M\%S`_temp_cloned
     - mkdir ~/$TEMPDIR
     - cd ~/$TEMPDIR
+    - umask 002
     - virtualenv venv
     - source venv/bin/activate
     - git clone --depth 1 --branch APGTAG https://github.com/unity-sds/app-pack-generator.git
