@@ -87,7 +87,7 @@
 #
 #   -a APGTAG is optional, and it is the git tag for the repository
 #      https://github.com/unity-sds/app-pack-generator for the
-#      desired revision. The default value is '0.4.0'
+#      desired revision. The default value is '0.4.1'
 #
 #   -u UAGTAG is optional, and it is the git tag for the repository
 #      https://github.com/unity-sds/unity-app-generator for the
@@ -107,7 +107,7 @@
 #    systems.  Git is also commonly installed in many systems;
 #    however, git version 2.10 or greater is needed due to the use of
 #    "-o ci.skip" option.  Install any of the above listed tools that
-#    does not exist in your system.  Afte installing git and git-lfs,
+#    does not exist in your system.  After installing git and git-lfs,
 #    you must run the command
 #      > git lfs install
 #    to initialize git-lfs before using this script.
@@ -137,8 +137,8 @@ tauthentication=""
 pipeline=""
 sgroup=""
 uvenue="dev"
-apgtag=""
-uagtag=""
+apgtag="0.4.1"
+uagtag="0.3.0"
 
 ipos=0
 while [ $# -gt 0 ]; do
@@ -190,11 +190,21 @@ echo "uagtag   '$uagtag'"
 
 #=============== Check if "$path" is a valid URL ===============
 
-# Boolean: true if $path is a valid URL that can be found, false otherwise.
+# Boolean: true if $path is a valid URL that can be found, false
+# otherwise.  It is not necessary for $path to be a remote git
+# repo URL for this flag to be true.  For example, if $path is
+# "https://www.apple.com", then the flag will be set to true.
+#
+# In the context of this script, it is not an error if $path is
+# not a URL at this point. The path could be a local git repo,
+# which is desired to be cloned in MCP GitLab, or it could be a
+# non-git folder, which is desired to be converted to a local git
+# repo and then cloned in MCP GitLab.
 #
 path_valid_url=$(! wget --spider "$path" > /dev/null 2>&1; echo $?)
 
-# Check whether or not the path is a valid URL
+# Check whether or not the path is a valid URL,
+# for information purpose only and no action.
 #
 if (( $path_valid_url )); then
     echo "INFO:  Verified URL '$path'"
@@ -203,29 +213,42 @@ else
 fi
 
 
-#=============== Check if $path is a Git repo URL ===============
-# If it is a Git repo URL,
-#   1) clone it
-#   2) set $path to be the locally cloned subdirectory name
-# It may not be an error if $path is not a Git repo URL that can be
-# found.  It could be a path pointing at a location in the local
-# file system.
+#=============== Check if "$path" is a git repo ===============
 
 # Boolean: true if $path is a valid git repo, false otherwise.
 # This flag will be true if $path is either
 #   - a URL for a remote git repository
 #   - or a path to a local git repository
 #
+# In the context of this script, it is not an error if $path is
+# not pointing at a git repo. It could be a local non-git
+# folder, which is desired to be converted to a local git repo
+# and then cloned in MCP GitLab.
+#
 path_valid_git=$(! git ls-remote "$path" > /dev/null 2>&1; echo $?)
 
+# Check whether or not the path is a valid git repo,
+# for information purpose only and no action.
+#
+if (( $path_valid_git )); then
+    echo "INFO:  Verified git repo '$path'"
+else
+    echo "INFO:  Cannot be verified as a git repo, '$path'"
+fi
+
+
+#=============== Check if $path is a Git repo URL ===============
+
+# $path is a verifiable git repo URL if both $path_valid_url and
+# $path_valid_git are true.  If $path is a Git repo URL, then
+#   1) clone it
+#   2) reset $path to be the locally cloned subdirectory name
+# It may not be an error if $path is not a Git repo URL that can be
+# found.  It could already be a path pointing at a location in the
+# local file system.
+
 # Here we assume that $path is a URL pointing at a public repository
-# and no authentication is necessary.  Just $path_valid_git being
-# true is not enough here.  $path_valid_git would be true if $path
-# were a path to a git repository in the local filesystem.  Just
-# $path_valid_url being true is not enough either.  For example,
-# $path_valid_url would be true if $path were "https://www.apple.com",
-# which is not a git project URL.  Therefore, both flags must be true
-# for us to conclude that $path is the URL of a remote git repository.
+# and no authentication is necessary.
 #
 # If in the working directory there is a file or subdirectory named
 # $reponame, cloning will fail (see the 'if' block).  We may want to
@@ -233,7 +256,7 @@ path_valid_git=$(! git ls-remote "$path" > /dev/null 2>&1; echo $?)
 #
 just_cloned=false
 if (( $path_valid_git && $path_valid_url )); then
-    echo "INFO:  Verified a git repository '$path'"
+    echo "INFO:  Verified git repo URL '$path'"
     basename=$(basename $path)
     reponame=${basename%.*}
     #extension=${basename##*.}
@@ -244,14 +267,26 @@ if (( $path_valid_git && $path_valid_url )); then
         exit $?
     fi
     just_cloned=true
+
     git -C $reponame remote set-url --push origin DISABLED
+    #
+    # A failure in 'disabling' push/origin is not a critical
+    # error. It is not necessary to exit with error because
+    # of it. However, it is unlikely for this failure to
+    # happen.
+    #
+    if [ $? -ne 0 ]; then
+        echo "WARN:  Command 'git -C $reponame remote set-url --push origin DISABLED' failed!"
+    fi
+
     path=$reponame
 else
-    echo "INFO:  Could not be verified as a remote git repository '$path'"
+    echo "INFO:  Can not be verified as a git repo URL, '$path'"
 fi
 
 
 #=============== Check if $path is a local filesystem subdirectory ===============
+
 # At this point, path must be an existing local subdirectory.
 
 # If not a valid directory, just exit.  If not exited, the process
@@ -266,6 +301,7 @@ cd $path
 
 
 #=============== Not a Git repo? Then convert into a Git repo ===============
+
 # If the working directory (folder) is inside a git repository, which
 # was not recently cloned, then perhaps the caller wanted to pull
 # updates from the original remote and push it into MCP.  The code 
@@ -295,8 +331,19 @@ if (( $git_repo_somewhere )); then
         if [ -z "$result" ]; then
             echo "WARN:  There is no remote named '$original_remote_name' for updates."
         else
+
             # The following disabling may not be necessary.
             git remote set-url --push $original_remote_name DISABLED
+
+            # A failure in 'disabling' push/origin is not a critical
+            # error. It is not necessary to exit with error because
+            # of it. However, it is unlikely for this failure to
+            # happen.
+            #
+            if [ $? -ne 0 ]; then
+                echo "WARN:  Command 'git remote set-url --push $original_remote_name DISABLED' failed!"
+            fi
+
             echo "INFO:  Pulling updates from remote '$original_remote_name' for MCP push later."
             git pull $original_remote_name
             if [ $? -ne 0 ]; then
@@ -320,6 +367,7 @@ fi
 
 
 #=============== Working directory must be a local Git repository ===============
+
 # At this point, the working directory must be a git repository;
 # otherwise, something is wrong.
 
